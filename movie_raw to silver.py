@@ -16,6 +16,11 @@ print(file_paths)
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC Ingest Raw
+
+# COMMAND ----------
+
 from pyspark.sql.functions import *
 
 rawDF = (spark.read
@@ -152,6 +157,10 @@ silverDF.na.drop().count()
 
 # COMMAND ----------
 
+silverDF=silverDF.drop_duplicates()
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC Split the Silver DataFrame
 
@@ -200,6 +209,7 @@ LOCATION "{silverPath}"
 # MAGIC %sql
 # MAGIC 
 # MAGIC SELECT * FROM silverDF
+# MAGIC ORDER BY movie_id DESC
 
 # COMMAND ----------
 
@@ -222,3 +232,98 @@ update = {"status": "clean.status"}
     .whenMatchedUpdate(set=update)
     .execute()
 )
+
+# COMMAND ----------
+
+silverAugmented = silverDF_quarantine.withColumn(
+    "status", lit("quarantined")
+)
+
+update_match = "bronze.movies = quarantine.movies"
+update = {"status": "quarantine.status"}
+
+(
+    bronzeTable.alias("bronze")
+    .merge(silverAugmented.alias("quarantine"), update_match)
+    .whenMatchedUpdate(set=update)
+    .execute()
+)
+
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Silver Update
+
+# COMMAND ----------
+
+bronzeQuarantinedDF = spark.read.table("movie_bronze").filter(
+    "status = 'quarantined'"
+)
+
+display(bronzeQuarantinedDF)
+
+# COMMAND ----------
+
+silverQuarantinedDF = bronzeQuarantinedDF.select(
+                                                 "movies.Id", 
+                                                 "movies.Title", 
+                                                 "movies.Overview",
+                                                 "movies.Budget",
+                                                 "movies.Revenue",
+                                                 "movies.Runtime",
+                                                 "movies.Price",
+                                                 "movies"
+                       )
+
+# COMMAND ----------
+
+display(silverQuarantinedDF)
+
+# COMMAND ----------
+
+from pyspark.sql.functions import col
+
+silverQuarantinedDF = silverQuarantinedDF.select(
+                           col("Id").cast("integer").alias("movie_id"),
+                           "Title", 
+                           "Overview",
+                           col("Budget").cast("integer"),
+                           col("Revenue").cast("integer"),
+                           abs(col("RunTime")).cast("integer").alias("Runtime"),
+                           col("Price").cast("float"),
+                           "movies"
+)
+
+# COMMAND ----------
+
+display(silverQuarantinedDF)
+
+# COMMAND ----------
+
+from pyspark.sql.functions import col
+
+(
+    silverQuarantinedDF.select("movie_id", "Title", "Overview", "Budget", "Revenue", "RunTime", "Price", "movies"
+    )
+    .write.format("delta")
+    .mode("append")
+    .save(silverPath)
+)
+
+# COMMAND ----------
+
+display(silverDF)
+
+# COMMAND ----------
+
+from pyspark.sql.functions import *
+
+silverTable = (spark.read
+             
+             .load(silverPath)
+         )
+
+# COMMAND ----------
+
+display(silverTable)

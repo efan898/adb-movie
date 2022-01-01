@@ -121,4 +121,47 @@ language_silver = language_silver.select(col("Id").cast("integer").alias("movie_
 
 # COMMAND ----------
 
+language_silver.count()
 
+# COMMAND ----------
+
+language_silver=language_silver.drop_duplicates()
+
+# COMMAND ----------
+
+language_silver.count()
+
+# COMMAND ----------
+
+(
+    language_silver.select(
+        "movie_id", "movie_title", "OriginalLanguage", "movies"
+    )
+    .write.format("delta")
+    .mode("append")
+    .save(languageSilverPath)
+)
+
+# COMMAND ----------
+
+spark.sql(
+    """
+DROP TABLE IF EXISTS languageSilver
+"""
+)
+
+spark.sql(
+    f"""
+CREATE TABLE languageSilver
+USING DELTA
+LOCATION "{languageSilverPath}"
+"""
+)
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC 
+# MAGIC select * from languageSilver
+# MAGIC 
+# MAGIC order by movie_id desc

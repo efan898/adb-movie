@@ -13,5 +13,6 @@ genreSilverPath = movie_path + "genreSilver/"
 genreSilverPath2 = movie_path + "genreSilver2/"
 budgetSilverPath = movie_path + "budgetSilver/"
 budgetFixPath = movie_path + "budgetFix/"
+languageSilverPath = movie_path + "languageSilver/"
 goldPath = movie_path + "gold/"
 
